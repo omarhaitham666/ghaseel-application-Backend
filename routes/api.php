@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify', [AuthController::class, 'verify']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/resend-code', [AuthController::class, 'resendCode']);
+
 
 
 // Public Services (Active Services Only)
@@ -32,6 +36,7 @@ Route::get('/services', [ServiceController::class, 'index']);
 Route::middleware('auth:api')->group(function () {
     // Authentication
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
 
     // Services
     Route::get('/services/{service}', [ServiceController::class, 'show']);
