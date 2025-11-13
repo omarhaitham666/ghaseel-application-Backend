@@ -171,13 +171,13 @@ class AuthService
 
     $verification_code = rand(100000, 999999);
 
-    // حفظ الكود مؤقتًا في Cache لمدة 10 دقائق
+    
     Cache::put('forgot_password_'.$verification_code, [
         'user_id' => $user->id,
         'email' => $user->email
     ], Carbon::now()->addMinutes(10));
 
-    // إرسال الكود للإيميل
+    
     Mail::raw("كود استعادة كلمة المرور الخاص بك هو: $verification_code", function ($message) use ($user) {
         $message->to($user->email)->subject('كود استعادة كلمة المرور');
     });

@@ -35,23 +35,23 @@ Route::get('/services', [ServiceController::class, 'index']);
 */
 
 Route::middleware('auth:api')->group(function () {
-    // Authentication
+   
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
-    // Services
+    
     Route::get('/services/{service}', [ServiceController::class, 'show']);
 
-    // Cart Routes
+    
     Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::post('/', [CartController::class, 'store']);
         Route::put('/{cart}', [CartController::class, 'update']);
-        Route::delete('/clear', [CartController::class, 'clear']); // Clear all cart items
+        Route::delete('/clear', [CartController::class, 'clear']); 
         Route::delete('/{cart}', [CartController::class, 'destroy']);
     });
 
-    // Order Routes
+    
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
         Route::post('/', [OrderController::class, 'store']);
@@ -65,7 +65,6 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/user/locations/{id}', [UserLocationController::class, 'update']);
     Route::delete('/user/locations/{id}', [UserLocationController::class, 'destroy']);
 
-    // 🧾 الطلبات
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
 });

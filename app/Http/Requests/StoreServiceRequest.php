@@ -20,22 +20,22 @@ class StoreServiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // الاسم باللغتين
+            
             'name' => 'required|array',
             'name.ar' => 'required|string|max:255',
             'name.en' => 'required|string|max:255',
 
-            // الوصف باللغتين
+            
             'description' => 'required|array',
             'description.ar' => 'nullable|array',
             'description.ar.*' => 'string|max:1000',
             'description.en' => 'nullable|array',
             'description.en.*' => 'string|max:1000',
 
-            // الصورة
+           
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
-            // حالة التفعيل
+            
             'is_active' => 'boolean',
         ];
     }
