@@ -1,133 +1,44 @@
 <?php
-
 namespace App\Services;
 
 use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\User;
-use App\Services\CartService;
-use Illuminate\Support\Str;
+use App\Models\Service;
+use App\Models\UserLocation;
+use Illuminate\Support\Facades\Auth;
 
 class OrderService
 {
-    protected CartService $cartService;
-
-    public function __construct(CartService $cartService)
+    public function createOrder(array $data)
     {
-        $this->cartService = $cartService;
-    }
+        $user = Auth::user();
 
-    /**
-     * Create order from cart.
-     *
-     * @param User $user
-     * @param array $data
-     * @return Order
-     */
-    public function createOrder(User $user, array $data): Order
-    {
-        $cartItems = $this->cartService->getUserCart($user);
+        // تحقق من العنوان
+        $location = UserLocation::where('id', $data['location_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
 
-        if ($cartItems->isEmpty()) {
-            throw new \Exception('السلة فارغة');
+        // تحقق من الخدمات
+        $services = Service::whereIn('id', $data['service_ids'])->get();
+
+        if ($services->isEmpty()) {
+            abort(400, 'No valid services selected');
         }
 
-        $total = $this->cartService->getCartTotal($user);
-
-        // Generate unique order number
-        $orderNumber = 'ORD-' . strtoupper(Str::random(8)) . '-' . time();
-
-        // Create order
+        // إنشاء الطلب
         $order = Order::create([
             'user_id' => $user->id,
-            'order_number' => $orderNumber,
-            'total_amount' => $total,
-            'status' => 'pending',
-            'address' => $data['address'],
-            'phone' => $data['phone'],
+            'location_id' => $location->id,
+            'delivery_type' => $data['delivery_type'],
+            'pickup_date' => $data['pickup_date'],
+            'pickup_time' => $data['pickup_time'],
+            'delivery_date' => $data['delivery_date'],
+            'delivery_time' => $data['delivery_time'],
             'notes' => $data['notes'] ?? null,
         ]);
 
-        // Create order items
-        foreach ($cartItems as $cartItem) {
-            OrderItem::create([
-                'order_id' => $order->id,
-                'service_id' => $cartItem->service_id,
-                'service_name' => $cartItem->service->name,
-                'service_price' => $cartItem->service->price,
-                'quantity' => $cartItem->quantity,
-                'subtotal' => $cartItem->service->price * $cartItem->quantity,
-            ]);
-        }
+        // ربط الخدمات
+        $order->services()->sync($services->pluck('id'));
 
-        // Clear cart
-        $this->cartService->clearCart($user);
-
-        return $order->load('orderItems');
-    }
-
-    /**
-     * Update order status.
-     *
-     * @param Order $order
-     * @param string $status
-     * @return Order
-     */
-    public function updateOrderStatus(Order $order, string $status): Order
-    {
-        $order->update(['status' => $status]);
-        return $order->fresh();
-    }
-
-    /**
-     * Get user's orders.
-     *
-     * @param User $user
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function getUserOrders(User $user)
-    {
-        return Order::where('user_id', $user->id)
-            ->with('orderItems')
-            ->orderBy('created_at', 'desc')
-            ->get();
-    }
-
-    /**
-     * Get all orders (for admin).
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function getAllOrders()
-    {
-        return Order::with(['user', 'orderItems'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-    }
-
-    /**
-     * Get order by ID.
-     *
-     * @param int $id
-     * @return Order
-     */
-    public function getOrderById(int $id): Order
-    {
-        return Order::with(['user', 'orderItems'])->findOrFail($id);
-    }
-
-    /**
-     * Get orders by status.
-     *
-     * @param string $status
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function getOrdersByStatus(string $status)
-    {
-        return Order::where('status', $status)
-            ->with(['user', 'orderItems'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        return $order->load('services', 'location');
     }
 }
-

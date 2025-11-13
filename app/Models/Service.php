@@ -14,15 +14,18 @@ class Service extends Model implements HasMedia
     protected $fillable = [
         'name',
         'description',
-        'price',
         'image', // Keep for backward compatibility
         'is_active',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
+        'name' => 'array', 
+        'description' => 'array',
         'is_active' => 'boolean',
     ];
+
+  
+
 
     /**
      * Register media collections.
@@ -76,4 +79,3 @@ class Service extends Model implements HasMedia
      */
     protected $appends = ['image_url'];
 }
-

@@ -9,33 +9,31 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
+      protected $fillable = [
         'user_id',
-        'order_number',
-        'total_amount',
-        'status',
-        'address',
-        'phone',
+        'location_id',
+        'delivery_type',
+        'pickup_date',
+        'pickup_time',
+        'delivery_date',
+        'delivery_time',
         'notes',
+        'status',
+        'total_price',
     ];
 
-    protected $casts = [
-        'total_amount' => 'decimal:2',
-    ];
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'order_services');
+    }
 
-    /**
-     * Get the user that owns the order.
-     */
+    public function location()
+    {
+        return $this->belongsTo(UserLocation::class, 'location_id');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the order items for the order.
-     */
-    public function orderItems()
-    {
-        return $this->hasMany(OrderItem::class);
     }
 }

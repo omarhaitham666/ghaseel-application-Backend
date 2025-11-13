@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\UserLocationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,17 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/', [OrderController::class, 'store']);
         Route::get('/{order}', [OrderController::class, 'show']);
     });
+
+
+
+     Route::get('/user/locations', [UserLocationController::class, 'index']);
+    Route::post('/user/locations', [UserLocationController::class, 'store']);
+    Route::put('/user/locations/{id}', [UserLocationController::class, 'update']);
+    Route::delete('/user/locations/{id}', [UserLocationController::class, 'destroy']);
+
+    // 🧾 الطلبات
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
 });
 
 /*

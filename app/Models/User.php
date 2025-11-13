@@ -65,6 +65,13 @@ class User extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
+
+    public function locations()
+{
+    return $this->hasMany(UserLocation::class);
+}
+
+
     /**
      * Check if user is admin.
      */
