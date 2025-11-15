@@ -39,10 +39,7 @@ class Service extends Model implements HasMedia
     /**
      * Get the carts for the service.
      */
-    public function carts()
-    {
-        return $this->hasMany(Cart::class);
-    }
+   
 
     /**
      * Get the order items for the service.

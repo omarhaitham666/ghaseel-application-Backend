@@ -18,8 +18,10 @@ class Order extends Model
         'delivery_date',
         'delivery_time',
         'notes',
-        'status',
-        'total_price',
+        'admin_status',
+        'order_status',
+        'final_price',
+        'rejection_reason',
     ];
 
     public function services()
@@ -36,4 +38,9 @@ class Order extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function cart()
+{
+    return $this->hasOne(Cart::class);
+}
+
 }

@@ -11,8 +11,11 @@ class Cart extends Model
 
     protected $fillable = [
         'user_id',
-        'service_id',
-        'quantity',
+        'price',          // السعر النهائي للخدمة
+        'admin_status',   // pending, accepted, rejected
+        'order_status',
+        'order_id',
+        'rejection_reason',
     ];
 
     /**
@@ -26,8 +29,11 @@ class Cart extends Model
     /**
      * Get the service that belongs to the cart.
      */
-    public function service()
-    {
-        return $this->belongsTo(Service::class);
-    }
+   
+
+    public function order()
+{
+    return $this->belongsTo(Order::class);
+}
+
 }

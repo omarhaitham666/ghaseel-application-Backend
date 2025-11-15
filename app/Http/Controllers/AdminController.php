@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AdminAcceptOrderRequest;
+use App\Http\Requests\AdminRejectOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Models\Order;
 use App\Services\OrderService;
@@ -75,31 +77,145 @@ class AdminController extends Controller
         }
     }
 
+
+
+
+  //  public function acceptOrder(AdminAcceptOrderRequest $request, Order $order)
+//{
+  //  try {
+    //    $validated = $request->validated();
+
+      //  $order = $this->orderService->acceptOrder(
+        //    $order,
+          //  $validated['final_price']
+        //);
+
+        //return response()->json([
+          //  'status' => 'success',
+            //'message' => 'تم قبول الطلب بنجاح',
+  //          'd//ata' => $order->load(['user', 'orderItems']),
+        //]);
+    //} catch (\Exception $e) {
+      //  return response()->json([
+        //    'status' => 'error',
+          //  'message' => 'حدث خطأ أثناء قبول الطلب: ' . $e->getMessage(),
+        //], 500);
+    //}
+//}
+
+
+//public function rejectOrder(AdminRejectOrderRequest  $request, Order $order)
+//{
+    //try {
+    //    $validated = $request->validated();
+
+      //  $order = $this->orderService->rejectOrder(
+           // $order,
+          //  $validated['reason']
+       // );
+
+      //  return response()->json([
+            //'status' => 'success',
+           // 'message' => 'تم رفض الطلب بنجاح',
+            //'data' => $order->load(['user', 'orderItems']),
+       // ]);
+   // } catch (\Exception $e) {
+        //return response()->json([
+          //  'status' => 'error',
+    //        'message' => 'حدث خطأ أثناء رفض الطلب: ' . $e->getMessage(),
+      //  ], 500);
+   // }
+//}
+
+
     /**
      * Get dashboard statistics (admin only).
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function dashboard(Request $request)
-    {
-        $totalOrders = Order::count();
-        $pendingOrders = Order::where('status', 'pending')->count();
-        $processingOrders = Order::where('status', 'processing')->count();
-        $completedOrders = Order::where('status', 'completed')->count();
-        $deliveredOrders = Order::where('status', 'delivered')->count();
-        $totalRevenue = Order::where('status', 'delivered')->sum('total_amount');
+    public function dashboard()
+{
+    return response()->json([
+        'status' => 'success',
+        'data' => [
+            'total_orders' => Order::count(),
 
+            'admin_pending' => Order::where('admin_status', 'pending')->count(),
+            'admin_accepted' => Order::where('admin_status', 'accepted')->count(),
+            'admin_rejected' => Order::where('admin_status', 'rejected')->count(),
+
+            'processing_orders' => Order::where('order_status', 'processing')->count(),
+            'completed_orders' => Order::where('order_status', 'completed')->count(),
+            'delivered_orders' => Order::where('order_status', 'delivered')->count(),
+
+            'total_revenue' => Order::where('order_status', 'delivered')->sum('final_price'),
+        ]
+    ]);
+}
+
+
+
+   public function acceptOrder(AdminAcceptOrderRequest $request, Order $order)
+{
+    $validated = $request->validated();
+
+    $order = $this->orderService->adminAccept($order, $validated['final_price']);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'تم قبول الطلب بنجاح',
+        'data' => $order,
+    ]);
+}
+
+
+public function rejectOrder(AdminRejectOrderRequest $request, Order $order)
+{
+    $validated = $request->validated();
+
+    $order = $this->orderService->adminReject($order, $validated['rejection_reason']);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'تم رفض الطلب بنجاح',
+        'data' => $order,
+    ]);
+}
+
+
+
+public function adminDeleteOrder($orderId)
+{
+    $user = auth()->user();
+
+    // التأكد أن المستخدم مسجل دخول وأنه أدمن
+    if (!$user || $user->role !== 'admin') {
         return response()->json([
-            'status' => 'success',
-            'data' => [
-                'total_orders' => $totalOrders,
-                'pending_orders' => $pendingOrders,
-                'processing_orders' => $processingOrders,
-                'completed_orders' => $completedOrders,
-                'delivered_orders' => $deliveredOrders,
-                'total_revenue' => $totalRevenue,
-            ],
-        ]);
+            'status' => 'error',
+            'message' => 'غير مصرح لك'
+        ], 403);
     }
+
+    // البحث عن الأوردر
+    $order = \App\Models\Order::find($orderId);
+
+    if (!$order) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'الأوردر غير موجود'
+        ], 404);
+    }
+
+    // حذف الأوردر فقط، بدون أي علاقة بالكارت
+    $order->delete();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'تم حذف الأوردر بنجاح'
+    ]);
+}
+
+
+
 }

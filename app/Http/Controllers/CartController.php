@@ -8,6 +8,7 @@ use App\Models\Cart;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 
+
 class CartController extends Controller
 {
     protected CartService $cartService;
@@ -111,29 +112,37 @@ class CartController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function destroy(Request $request, Cart $cart)
-    {
-        try {
-            // Check if cart item belongs to authenticated user
-            if ($cart->user_id !== $request->user()->id) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'غير مصرح لك بحذف هذا العنصر',
-                ], 403);
-            }
+{
+    $user = $request->user();
 
-            $this->cartService->removeFromCart($cart);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'تم حذف العنصر من السلة بنجاح',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'حدث خطأ أثناء حذف العنصر: ' . $e->getMessage(),
-            ], 500);
-        }
+    // التأكد إن العنصر تابع للمستخدم
+    if ($cart->user_id !== $user->id) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'غير مصرح لك بحذف هذا العنصر',
+        ], 403);
     }
+
+    $this->cartService->removeFromCart($cart);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'تم حذف العنصر من السلة بنجاح',
+    ]);
+}
+
+
+public function clear(Request $request)
+{
+    $user = $request->user();
+    $this->cartService->clearCart($user);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'تم تفريغ السلة بنجاح',
+    ]);
+}
+
 
     /**
      * Clear user's cart.
@@ -141,21 +150,27 @@ class CartController extends Controller
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function clear(Request $request)
-    {
-        try {
-            $user = $request->user();
-            $this->cartService->clearCart($user);
+    
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'تم تفريغ السلة بنجاح',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'حدث خطأ أثناء تفريغ السلة: ' . $e->getMessage(),
-            ], 500);
-        }
+
+   
+   
+    public function myCart()
+    {
+     
+         
+        $user = auth()->user(); // المستخدم المسجل دخوله
+
+        $cartItems = $this->cartService->getUserCart($user->id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $cartItems
+        ]);
     }
+
+    
 }
+
+
+
