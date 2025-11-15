@@ -22,8 +22,7 @@ class AddToCartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'service_id' => 'required|exists:services,id',
-            'quantity' => 'required|integer|min:1',
+            'order_id' => 'required|exists:orders,id',
         ];
     }
 
@@ -35,11 +34,8 @@ class AddToCartRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'service_id.required' => 'معرف الخدمة مطلوب',
-            'service_id.exists' => 'الخدمة المحددة غير موجودة',
-            'quantity.required' => 'الكمية مطلوبة',
-            'quantity.integer' => 'الكمية يجب أن تكون رقماً صحيحاً',
-            'quantity.min' => 'الكمية يجب أن تكون على الأقل 1',
+            'order_id.required' => 'معرف الطلب مطلوب',
+            'order_id.exists' => 'الطلب المحدد غير موجود',
         ];
     }
 }

@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AddToCartRequest;
 use App\Http\Requests\UpdateCartRequest;
+use App\Http\Resources\CartResource;
+use App\Http\Resources\CartResourceCollection;
 use App\Models\Cart;
 use App\Services\CartService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
 
 class CartController extends Controller
 {
@@ -22,45 +24,48 @@ class CartController extends Controller
      * Get user's cart items.
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $cartItems = $this->cartService->getUserCart($user);
-        $total = $this->cartService->getCartTotal($user);
+        try {
+            $user = $request->user();
+            $cartItems = $this->cartService->getUserCart($user);
+            $total = $this->cartService->getCartTotal($user);
 
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'items' => $cartItems,
-                'total' => $total,
-            ],
-        ]);
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'items' => new CartResourceCollection($cartItems),
+                    'total' => $total,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب عناصر السلة: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Add item to cart.
      *
      * @param AddToCartRequest $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function store(AddToCartRequest $request)
+    public function store(AddToCartRequest $request): JsonResponse
     {
         try {
             $user = $request->user();
             $validated = $request->validated();
 
-            $cartItem = $this->cartService->addToCart(
-                $user,
-                $validated['service_id'],
-                $validated['quantity']
-            );
+            $cartItem = $this->cartService->addToCart($user, $validated['order_id']);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم إضافة العنصر إلى السلة بنجاح',
-                'data' => $cartItem->load('service'),
+                'data' => new CartResource($cartItem),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -71,36 +76,56 @@ class CartController extends Controller
     }
 
     /**
-     * Update cart item quantity.
+     * Display the specified cart item.
+     *
+     * @param Request $request
+     * @param Cart $cart
+     * @return JsonResponse
+     */
+    public function show(Request $request, Cart $cart): JsonResponse
+    {
+        try {
+            $this->cartService->authorize($cart);
+            $cart = $this->cartService->getCartDetails($cart);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => new CartResource($cart),
+            ]);
+        } catch (\Exception $e) {
+            $statusCode = $e->getCode() === 403 ? 403 : 500;
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], $statusCode);
+        }
+    }
+
+    /**
+     * Update cart item.
      *
      * @param UpdateCartRequest $request
      * @param Cart $cart
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function update(UpdateCartRequest $request, Cart $cart)
+    public function update(UpdateCartRequest $request, Cart $cart): JsonResponse
     {
         try {
-            // Check if cart item belongs to authenticated user
-            if ($cart->user_id !== $request->user()->id) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'غير مصرح لك بتحديث هذا العنصر',
-                ], 403);
-            }
-
+            $this->cartService->authorize($cart);
             $validated = $request->validated();
-            $cartItem = $this->cartService->updateCartItem($cart, $validated['quantity']);
+            $cartItem = $this->cartService->updateCartItem($cart, $validated);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم تحديث العنصر بنجاح',
-                'data' => $cartItem->load('service'),
+                'data' => new CartResource($cartItem),
             ]);
         } catch (\Exception $e) {
+            $statusCode = $e->getCode() === 403 ? 403 : 500;
             return response()->json([
                 'status' => 'error',
                 'message' => 'حدث خطأ أثناء تحديث العنصر: ' . $e->getMessage(),
-            ], 500);
+            ], $statusCode);
         }
     }
 
@@ -109,68 +134,59 @@ class CartController extends Controller
      *
      * @param Request $request
      * @param Cart $cart
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function destroy(Request $request, Cart $cart)
-{
-    $user = $request->user();
+    public function destroy(Request $request, Cart $cart): JsonResponse
+    {
+        try {
+            $this->cartService->authorize($cart);
+            $this->cartService->removeFromCart($cart);
 
-    // التأكد إن العنصر تابع للمستخدم
-    if ($cart->user_id !== $user->id) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'غير مصرح لك بحذف هذا العنصر',
-        ], 403);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم حذف العنصر من السلة بنجاح',
+            ]);
+        } catch (\Exception $e) {
+            $statusCode = $e->getCode() === 403 ? 403 : 500;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء حذف العنصر: ' . $e->getMessage(),
+            ], $statusCode);
+        }
     }
-
-    $this->cartService->removeFromCart($cart);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'تم حذف العنصر من السلة بنجاح',
-    ]);
-}
-
-
-public function clear(Request $request)
-{
-    $user = $request->user();
-    $this->cartService->clearCart($user);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'تم تفريغ السلة بنجاح',
-    ]);
-}
-
 
     /**
      * Clear user's cart.
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    
-
-
-   
-   
-    public function myCart()
+    public function clear(Request $request): JsonResponse
     {
-     
-         
-        $user = auth()->user(); // المستخدم المسجل دخوله
+        try {
+            $user = $request->user();
+            $this->cartService->clearCart($user);
 
-        $cartItems = $this->cartService->getUserCart($user->id);
-
-        return response()->json([
-            'success' => true,
-            'data' => $cartItems
-        ]);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم تفريغ السلة بنجاح',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء تفريغ السلة: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
-    
+    /**
+     * Get user's cart (alternative method name).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function myCart(Request $request): JsonResponse
+    {
+        return $this->index($request);
+    }
 }
-
-
-

@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
+use App\Http\Resources\ServiceResource;
+use App\Http\Resources\ServiceResourceCollection;
 use App\Models\Service;
 use App\Services\ServiceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ServiceController extends Controller
@@ -20,40 +23,54 @@ class ServiceController extends Controller
     /**
      * Display a listing of active services (for users).
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @param Request $request
+     * @return JsonResponse
      */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        $services = $this->serviceService->getActiveServices();
+        try {
+            $services = $this->serviceService->getActiveServices();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $services,
-        ]);
+            return (new ServiceResourceCollection($services))->additional([
+                'status' => 'success',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب الخدمات: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Display all services (for admin).
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @param Request $request
+     * @return JsonResponse
      */
-    public function all()
+    public function all(Request $request): JsonResponse
     {
-        $services = $this->serviceService->getAllServices();
+        try {
+            $services = $this->serviceService->getAllServices();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $services,
-        ]);
+            return (new ServiceResourceCollection($services))->additional([
+                'status' => 'success',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب الخدمات: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Store a newly created service.
      *
      * @param StoreServiceRequest $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function store(StoreServiceRequest $request)
+    public function store(StoreServiceRequest $request): JsonResponse
     {
         try {
             $data = $request->validated();
@@ -66,7 +83,7 @@ class ServiceController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم إنشاء الخدمة بنجاح',
-                'data' => $service,
+                'data' => new ServiceResource($service),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -79,17 +96,25 @@ class ServiceController extends Controller
     /**
      * Display the specified service.
      *
+     * @param Request $request
      * @param Service $service
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function show(Service $service)
+    public function show(Request $request, Service $service): JsonResponse
     {
-        $service->load('media');
-        
-        return response()->json([
-            'status' => 'success',
-            'data' => $service,
-        ]);
+        try {
+            $service = $this->serviceService->getServiceDetails($service);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => new ServiceResource($service),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب تفاصيل الخدمة: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -97,11 +122,10 @@ class ServiceController extends Controller
      *
      * @param UpdateServiceRequest $request
      * @param Service $service
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function update(UpdateServiceRequest $request, Service $service)
+    public function update(UpdateServiceRequest $request, Service $service): JsonResponse
     {
-        
         try {
             $data = $request->validated();
             $image = $request->hasFile('image') && $request->file('image')->isValid() 
@@ -113,7 +137,7 @@ class ServiceController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم تحديث الخدمة بنجاح',
-                'data' => $service,
+                'data' => new ServiceResource($service),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -127,9 +151,9 @@ class ServiceController extends Controller
      * Remove the specified service.
      *
      * @param Service $service
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function destroy(Service $service)
+    public function destroy(Service $service): JsonResponse
     {
         try {
             $this->serviceService->deleteService($service);

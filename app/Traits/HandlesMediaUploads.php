@@ -32,13 +32,34 @@ trait HandlesMediaUploads
             $model->clearMediaCollection($collection);
         }
 
-        // Add media using the file's real path
-        $realPath = $file->getRealPath();
-        if ($realPath && file_exists($realPath) && is_readable($realPath)) {
-            $model->addMedia($realPath)
+        // Add media using Spatie Media Library
+        // Use getPathname() which returns the temporary file path
+        // This is the most reliable method for UploadedFile instances
+        try {
+            $filePath = $file->getPathname();
+            
+            // Ensure file exists and is readable
+            if (!file_exists($filePath) || !is_readable($filePath)) {
+                \Log::warning('Media file not accessible', [
+                    'path' => $filePath,
+                    'model' => get_class($model),
+                    'collection' => $collection
+                ]);
+                return;
+            }
+
+            $model->addMedia($filePath)
                 ->usingName($file->getClientOriginalName())
-                ->usingFileName($file->getClientOriginalName())
+                ->usingFileName($this->generateUniqueFileName($file))
                 ->toMediaCollection($collection);
+        } catch (\Exception $e) {
+            \Log::error('Failed to store media', [
+                'error' => $e->getMessage(),
+                'file' => $file->getClientOriginalName(),
+                'model' => get_class($model),
+                'collection' => $collection
+            ]);
+            throw $e;
         }
     }
 
@@ -71,5 +92,19 @@ trait HandlesMediaUploads
             $model->clearMediaCollection($collection);
         }
     }
-}
 
+    /**
+     * Generate a unique file name to avoid conflicts.
+     *
+     * @param UploadedFile $file
+     * @return string
+     */
+    protected function generateUniqueFileName(UploadedFile $file): string
+    {
+        $extension = $file->getClientOriginalExtension();
+        $name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        
+        // Generate unique filename: original_name_timestamp.extension
+        return $name . '_' . time() . '_' . uniqid() . '.' . $extension;
+    }
+}

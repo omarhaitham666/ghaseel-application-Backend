@@ -5,8 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AdminAcceptOrderRequest;
 use App\Http\Requests\AdminRejectOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
+use App\Http\Resources\DashboardStatisticsResource;
+use App\Http\Resources\OrderResource;
+use App\Http\Resources\OrderResourceCollection;
 use App\Models\Order;
 use App\Services\OrderService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminController extends Controller
@@ -22,16 +27,22 @@ class AdminController extends Controller
      * Get all orders (admin only).
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function getAllOrders(Request $request)
+    public function getAllOrders(Request $request): JsonResponse
     {
-        $orders = $this->orderService->getAllOrders();
+        try {
+            $orders = $this->orderService->getAllOrders();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $orders,
-        ]);
+            return (new OrderResourceCollection($orders))->additional([
+                'status' => 'success',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب الطلبات: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -39,16 +50,23 @@ class AdminController extends Controller
      *
      * @param Request $request
      * @param Order $order
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function getOrder(Request $request, Order $order)
+    public function getOrder(Request $request, Order $order): JsonResponse
     {
-        $order->load(['user', 'orderItems.service']);
+        try {
+            $order = $this->orderService->getOrderDetails($order);
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $order,
-        ]);
+            return response()->json([
+                'status' => 'success',
+                'data' => new OrderResource($order),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب تفاصيل الطلب: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -56,9 +74,9 @@ class AdminController extends Controller
      *
      * @param UpdateOrderStatusRequest $request
      * @param Order $order
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function updateOrderStatus(UpdateOrderStatusRequest $request, Order $order)
+    public function updateOrderStatus(UpdateOrderStatusRequest $request, Order $order): JsonResponse
     {
         try {
             $validated = $request->validated();
@@ -67,7 +85,7 @@ class AdminController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم تحديث حالة الطلب بنجاح',
-                'data' => $order->load(['user', 'orderItems']),
+                'data' => new OrderResource($order),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -77,145 +95,106 @@ class AdminController extends Controller
         }
     }
 
-
-
-
-  //  public function acceptOrder(AdminAcceptOrderRequest $request, Order $order)
-//{
-  //  try {
-    //    $validated = $request->validated();
-
-      //  $order = $this->orderService->acceptOrder(
-        //    $order,
-          //  $validated['final_price']
-        //);
-
-        //return response()->json([
-          //  'status' => 'success',
-            //'message' => 'تم قبول الطلب بنجاح',
-  //          'd//ata' => $order->load(['user', 'orderItems']),
-        //]);
-    //} catch (\Exception $e) {
-      //  return response()->json([
-        //    'status' => 'error',
-          //  'message' => 'حدث خطأ أثناء قبول الطلب: ' . $e->getMessage(),
-        //], 500);
-    //}
-//}
-
-
-//public function rejectOrder(AdminRejectOrderRequest  $request, Order $order)
-//{
-    //try {
-    //    $validated = $request->validated();
-
-      //  $order = $this->orderService->rejectOrder(
-           // $order,
-          //  $validated['reason']
-       // );
-
-      //  return response()->json([
-            //'status' => 'success',
-           // 'message' => 'تم رفض الطلب بنجاح',
-            //'data' => $order->load(['user', 'orderItems']),
-       // ]);
-   // } catch (\Exception $e) {
-        //return response()->json([
-          //  'status' => 'error',
-    //        'message' => 'حدث خطأ أثناء رفض الطلب: ' . $e->getMessage(),
-      //  ], 500);
-   // }
-//}
-
-
     /**
      * Get dashboard statistics (admin only).
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function dashboard()
-{
-    return response()->json([
-        'status' => 'success',
-        'data' => [
-            'total_orders' => Order::count(),
+    public function dashboard(Request $request): JsonResponse
+    {
+        try {
+            $statistics = $this->orderService->getDashboardStatistics();
 
-            'admin_pending' => Order::where('admin_status', 'pending')->count(),
-            'admin_accepted' => Order::where('admin_status', 'accepted')->count(),
-            'admin_rejected' => Order::where('admin_status', 'rejected')->count(),
-
-            'processing_orders' => Order::where('order_status', 'processing')->count(),
-            'completed_orders' => Order::where('order_status', 'completed')->count(),
-            'delivered_orders' => Order::where('order_status', 'delivered')->count(),
-
-            'total_revenue' => Order::where('order_status', 'delivered')->sum('final_price'),
-        ]
-    ]);
-}
-
-
-
-   public function acceptOrder(AdminAcceptOrderRequest $request, Order $order)
-{
-    $validated = $request->validated();
-
-    $order = $this->orderService->adminAccept($order, $validated['final_price']);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'تم قبول الطلب بنجاح',
-        'data' => $order,
-    ]);
-}
-
-
-public function rejectOrder(AdminRejectOrderRequest $request, Order $order)
-{
-    $validated = $request->validated();
-
-    $order = $this->orderService->adminReject($order, $validated['rejection_reason']);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'تم رفض الطلب بنجاح',
-        'data' => $order,
-    ]);
-}
-
-
-
-public function adminDeleteOrder($orderId)
-{
-    $user = auth()->user();
-
-    // التأكد أن المستخدم مسجل دخول وأنه أدمن
-    if (!$user || $user->role !== 'admin') {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'غير مصرح لك'
-        ], 403);
+            return response()->json([
+                'status' => 'success',
+                'data' => new DashboardStatisticsResource($statistics),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء جلب إحصائيات لوحة التحكم: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
-    // البحث عن الأوردر
-    $order = \App\Models\Order::find($orderId);
+    /**
+     * Accept order (admin only).
+     *
+     * @param AdminAcceptOrderRequest $request
+     * @param Order $order
+     * @return JsonResponse
+     */
+    public function acceptOrder(AdminAcceptOrderRequest $request, Order $order): JsonResponse
+    {
+        try {
+            $validated = $request->validated();
+            $order = $this->orderService->adminAccept($order, $validated['final_price']);
 
-    if (!$order) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'الأوردر غير موجود'
-        ], 404);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم قبول الطلب بنجاح',
+                'data' => new OrderResource($order),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء قبول الطلب: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
-    // حذف الأوردر فقط، بدون أي علاقة بالكارت
-    $order->delete();
+    /**
+     * Reject order (admin only).
+     *
+     * @param AdminRejectOrderRequest $request
+     * @param Order $order
+     * @return JsonResponse
+     */
+    public function rejectOrder(AdminRejectOrderRequest $request, Order $order): JsonResponse
+    {
+        try {
+            $validated = $request->validated();
+            $order = $this->orderService->adminReject($order, $validated['rejection_reason']);
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'تم حذف الأوردر بنجاح'
-    ]);
-}
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم رفض الطلب بنجاح',
+                'data' => new OrderResource($order),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء رفض الطلب: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
+    /**
+     * Delete order (admin only).
+     *
+     * @param int $orderId
+     * @return JsonResponse
+     */
+    public function adminDeleteOrder(int $orderId): JsonResponse
+    {
+        try {
+            $this->orderService->deleteOrder($orderId);
 
-
+            return response()->json([
+                'status' => 'success',
+                'message' => 'تم حذف الطلب بنجاح',
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'الطلب غير موجود',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'حدث خطأ أثناء حذف الطلب: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
